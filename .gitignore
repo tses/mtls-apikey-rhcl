@@ -1,3 +1,6 @@
+# ── Tickets (local drafts — not tracked in git) ───────────────────────────────
+tickets/
+
 # macOS System Files
 .DS_Store
 .AppleDouble
