@@ -30,8 +30,8 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-STRESS_DIR="$REPO_ROOT/mtls-apikey/stress"
+STRESS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${STRESS_DIR}/../.." && pwd)"
 CERT_DIR="$REPO_ROOT/tmp/mtls-demo"
 NS="mtls-apikey"
 
