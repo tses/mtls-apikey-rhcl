@@ -1,0 +1,94 @@
+---
+# Cars Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cars
+  namespace: mtls-apikey
+  labels:
+    app: cars
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cars
+  template:
+    metadata:
+      labels:
+        app: cars
+    spec:
+      containers:
+      - name: cars
+        image: docker.io/tses/talker-api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: PORT
+          value: "3000"
+        - name: CONTAINER_INFO
+          value: "cars"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cars
+  namespace: mtls-apikey
+  labels:
+    app: cars
+spec:
+  selector:
+    app: cars
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+    protocol: TCP
+---
+# Tax Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tax
+  namespace: mtls-apikey
+  labels:
+    app: tax
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tax
+  template:
+    metadata:
+      labels:
+        app: tax
+    spec:
+      containers:
+      - name: tax
+        image: docker.io/tses/talker-api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: PORT
+          value: "3000"
+        - name: CONTAINER_INFO
+          value: "tax"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tax
+  namespace: mtls-apikey
+  labels:
+    app: tax
+spec:
+  selector:
+    app: tax
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+    protocol: TCP

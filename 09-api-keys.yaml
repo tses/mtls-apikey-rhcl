@@ -1,0 +1,120 @@
+# API Keys for dual-gateway mTLS + API Key combined authentication.
+#
+# Two tiers of API keys:
+#
+# ── mTLS-required keys (for external-mtls-apikey Gateway) ────────────────────
+#   kuadrant.io/mtls-required: "true"
+#   kuadrant.io/expected-cn must equal the CN in the client certificate.
+#   OPA will enforce: XFCC header present AND cert CN == expected-cn.
+#
+#   User / certificate mapping:
+#     CN=insurance-user    → api-key-insurance-user    / car group / basic plan
+#     CN=accountant-user   → api-key-accountant-user   / tax group / basic plan
+#     CN=accountant-director → api-key-accountant-director / tax group / premium plan
+#
+# ── Plain keys (for external-plain Gateway) ───────────────────────────────────
+#   kuadrant.io/mtls-required: "false"  (or absent — defaults to false in OPA)
+#   No expected-cn annotation — CN check is skipped entirely.
+#   Same label selector (app: government-services) so the same AuthPolicy authenticates them.
+#
+#   Plain users:
+#     api-key-plain-car-user     / car group / basic plan
+#     api-key-plain-tax-user     / tax group / basic plan
+#
+# oc -n kuadrant-system delete secrets \
+#   api-key-insurance-user api-key-accountant-user api-key-accountant-director \
+#   api-key-plain-car-user api-key-plain-tax-user
+
+# ── mTLS-required keys ────────────────────────────────────────────────────────
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-key-insurance-user
+  namespace: kuadrant-system
+  labels:
+    authorino.kuadrant.io/managed-by: authorino
+    app: government-services
+  annotations:
+    kuadrant.io/groups: car
+    kuadrant.io/level: basic
+    secret.kuadrant.io/user-id: insurance-user
+    kuadrant.io/expected-cn: "insurance-user"
+    # OPA reads this to decide whether to enforce CN binding
+    kuadrant.io/mtls-required: "true"
+stringData:
+  api_key: INSURANCE
+type: Opaque
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-key-accountant-user
+  namespace: kuadrant-system
+  labels:
+    authorino.kuadrant.io/managed-by: authorino
+    app: government-services
+  annotations:
+    kuadrant.io/groups: tax
+    kuadrant.io/level: basic
+    secret.kuadrant.io/user-id: accountant-user
+    kuadrant.io/expected-cn: "accountant-user"
+    kuadrant.io/mtls-required: "true"
+stringData:
+  api_key: ACCOUNTANT
+type: Opaque
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-key-accountant-director
+  namespace: kuadrant-system
+  labels:
+    authorino.kuadrant.io/managed-by: authorino
+    app: government-services
+  annotations:
+    kuadrant.io/groups: tax
+    kuadrant.io/level: premium
+    secret.kuadrant.io/user-id: accountant-director
+    kuadrant.io/expected-cn: "accountant-director"
+    kuadrant.io/mtls-required: "true"
+stringData:
+  api_key: ACCOUNTANT-DIRECTOR
+type: Opaque
+
+# ── Plain keys (no client certificate required) ───────────────────────────────
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-key-plain-car-user
+  namespace: kuadrant-system
+  labels:
+    authorino.kuadrant.io/managed-by: authorino
+    app: government-services
+  annotations:
+    kuadrant.io/groups: car
+    kuadrant.io/level: basic
+    secret.kuadrant.io/user-id: plain-car-user
+    # mtls-required=false — OPA skips CN binding check for this key
+    kuadrant.io/mtls-required: "false"
+stringData:
+  api_key: PLAIN-CAR
+type: Opaque
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-key-plain-tax-user
+  namespace: kuadrant-system
+  labels:
+    authorino.kuadrant.io/managed-by: authorino
+    app: government-services
+  annotations:
+    kuadrant.io/groups: tax
+    kuadrant.io/level: basic
+    secret.kuadrant.io/user-id: plain-tax-user
+    kuadrant.io/mtls-required: "false"
+stringData:
+  api_key: PLAIN-TAX
+type: Opaque

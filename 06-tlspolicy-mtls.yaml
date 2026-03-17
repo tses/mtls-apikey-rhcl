@@ -1,0 +1,25 @@
+---
+# TLSPolicy for the mTLS + API Key Gateway.
+#
+# Instructs Kuadrant / cert-manager to automatically issue and renew the
+# server-side TLS certificate for the 'external-mtls-apikey' Gateway listener.
+#
+# cert-manager will create Secret 'api-external-mtls-apikey-tls' in the
+# mtls-apikey namespace — the same name referenced by the Gateway's certificateRefs.
+#
+# For the PoC the self-signed ClusterIssuer (../../02-clusterissuer.yaml) is used.
+# In production replace issuerRef with your enterprise CA ClusterIssuer.
+apiVersion: kuadrant.io/v1
+kind: TLSPolicy
+metadata:
+  name: gw-external-mtls-apikey-tls
+  namespace: mtls-apikey
+spec:
+  targetRef:
+    name: external-mtls-apikey
+    group: gateway.networking.k8s.io
+    kind: Gateway
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: self-signed

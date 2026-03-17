@@ -1,0 +1,108 @@
+# AuthPolicy for Tax HTTPRoute — dual-gateway design (mTLS + plain)
+#
+# This policy applies to 'tax-route' which is attached to BOTH Gateways:
+#   - external-mtls-apikey → mtls.mapi.example.com  (mTLS enforced by EnvoyFilter)
+#   - external-plain       → cert.mapi.example.com (no client cert required)
+#
+# Strategy:
+#   1. API key authentication via Authorino (same for both access tiers)
+#   2. OPA priority 0 — conditional CN binding:
+#      • kuadrant.io/mtls-required=true  → XFCC must be present, cert CN must match expected-cn
+#      • kuadrant.io/mtls-required=false → CN check is skipped (plain client)
+#   3. OPA priority 1 — group-based path access (tax group → /tax only)
+---
+apiVersion: kuadrant.io/v1
+kind: AuthPolicy
+metadata:
+  name: tax-mtls-apikey-policy
+  namespace: mtls-apikey
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: tax-route
+  defaults:
+    rules:
+      authentication:
+        "api-key-users":
+          apiKey:
+            selector:
+              matchLabels:
+                app: government-services
+          credentials:
+            authorizationHeader:
+              prefix: APIKEY
+
+      response:
+        success:
+          filters:
+            "identity":
+              json:
+                properties:
+                  "userid":
+                    selector: auth.identity.metadata.annotations.secret\.kuadrant\.io/user-id
+                  "level":
+                    selector: auth.identity.metadata.annotations.kuadrant\.io/level
+
+      authorization:
+        # Priority 0: conditional CN binding based on kuadrant.io/mtls-required annotation
+        #
+        # mtls-required=true  → mTLS client: enforce XFCC + CN == expected-cn
+        # mtls-required=false → plain client: skip CN check entirely
+        "mtls-apikey-binding":
+          priority: 0
+          opa:
+            rego: |
+              # ── Read mtls-required flag from the authenticated API key Secret ──────
+              mtls_required := object.get(
+                input.auth.identity.metadata.annotations,
+                "kuadrant.io/mtls-required",
+                "false"
+              )
+
+              # ── CASE A: plain client — CN check not required ──────────────────────
+              allow {
+                mtls_required == "false"
+              }
+
+              # ── CASE B: mTLS client — enforce XFCC + CN binding ──────────────────
+              # ── 1. Extract XFCC header ────────────────────────────────────────────
+              xfcc := input.context.request.http.headers["x-forwarded-client-cert"]
+
+              # ── 2. Extract Subject="..." from XFCC ───────────────────────────────
+              subject = v {
+                matches := regex.find_all_string_submatch_n(
+                  `Subject="([^"]*)"`, xfcc, 1
+                )
+                v := matches[0][1]
+              }
+
+              # ── 3. Parse Subject DN into key→value map ───────────────────────────
+              # "O=Demo,CN=accountant-user" → {O: "Demo", CN: "accountant-user"}
+              dn = parsed {
+                fields := split(subject, ",")
+                parsed := {k: val |
+                  part := fields[_]
+                  idx  := indexof(part, "=")
+                  idx  >= 0
+                  k    := substring(part, 0, idx)
+                  val  := substring(part, idx + 1, -1)
+                }
+              }
+
+              # ── 4. Read expected CN from the authenticated API key Secret ─────────
+              expected_cn := input.auth.identity.metadata.annotations["kuadrant.io/expected-cn"]
+
+              # ── 5. Allow only if mtls-required=true AND cert CN matches ──────────
+              allow {
+                mtls_required == "true"
+                dn["CN"] == expected_cn
+              }
+
+        # Priority 1: group-based path access (tax group → /tax only)
+        "only-tax-group":
+          priority: 1
+          opa:
+            rego: |
+              groups := split(object.get(input.auth.identity.metadata.annotations, "kuadrant.io/groups", ""), ",")
+              allow { groups[_] == "tax" }

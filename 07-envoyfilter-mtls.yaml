@@ -1,0 +1,49 @@
+---
+# EnvoyFilter — enables mTLS client certificate validation on the gateway.
+#
+# Patches the FILTER_CHAIN for port 443 on the 'external-mtls-apikey' Gateway to:
+#   • require a client certificate during TLS handshake
+#   • validate it against the CA cert mounted at /etc/istio/mtls-client-ca-certs/ca.crt
+#   • cause Envoy to inject the X-Forwarded-Client-Cert (XFCC) header
+#     which is parsed by the AuthPolicy OPA rules (02-authpolicy-*.yaml)
+#
+# Requires: Istio / Sail Operator
+# Reference: https://github.com/Kuadrant/architecture/issues/140
+#
+# Prerequisites:
+#   04-client-ca-secret.yaml applied
+#   05-gateway-infra-configmap.yaml + 06-gateway.yaml applied (CA cert mounted)
+#
+# IMPORTANT — workloadSelector is required for FILTER_CHAIN patches.
+# Istio does NOT honour targetRefs for applyTo: FILTER_CHAIN — it silently falls back
+# to namespace-wide application, patching ALL gateway proxy pods in the namespace.
+# Without workloadSelector the 'external-plain' pod also receives requireClientCertificate:true
+# but has no CA cert volume → SDS fails → filter_chain_not_found → connection reset (curl exit 35).
+# The selector matches only the auto-generated Deployment label set by the GW API controller.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: gateway-client-cert-validation
+  namespace: mtls-apikey
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: external-mtls-apikey
+  configPatches:
+  - applyTo: FILTER_CHAIN
+    match:
+      context: GATEWAY
+      listener:
+        portNumber: 443
+    patch:
+      operation: MERGE
+      value:
+        transport_socket:
+          name: envoy.transport_sockets.tls
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+            requireClientCertificate: true
+            commonTlsContext:
+              validationContext:
+                trusted_ca:
+                  filename: /etc/istio/mtls-client-ca-certs/ca.crt

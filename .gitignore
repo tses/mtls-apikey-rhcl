@@ -1,0 +1,104 @@
+# macOS System Files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# macOS Finder attributes
+.metadata_never_index
+
+# macOS resource forks
+*~
+
+# macOS folder attributes
+.FBCIndex
+.FBCLockFolder
+
+# ── VSCode ────────────────────────────────────────────────────────────────────
+.vscode/settings.json
+.vscode/*.code-workspace
+
+# ── Project tmp/ (generated certs, keystores, kcadm configs) ──────────────────
+tmp/
+!tmp/.gitkeep
+
+# ── k6 stress test results (timestamped run dirs + legacy flat files) ──────────
+stress/results/
+
+# ── Java / Maven / Quarkus build artifacts ────────────────────────────────────
+target/
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Maven wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# Compiled class files
+*.class
+
+# JAR / WAR / EAR / RAR
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Quarkus specific
+.quarkus/
+**/src/main/kubernetes/
+quarkus-artifact.properties
+build-analytics-event.json
+
+# IDE – IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# IDE – Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# IDE – NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# Generated client certificates (sensitive)
+*.skip

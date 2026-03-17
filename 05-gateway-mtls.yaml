@@ -1,0 +1,45 @@
+---
+# Dedicated 'external-mtls-apikey' Gateway for the mTLS + API Key PoC.
+#
+# Listener hostname is pinned to 'mtls.mapi.example.com' — the exclusive
+# entry point for clients that present a mutual-TLS client certificate.
+# The 'external-plain' Gateway (04b-gateway-plain.yaml) owns a different
+# hostname ('cert.mapi.example.com') so Istio / Gateway API can unambiguously
+# route each request to the correct Gateway and apply the right EnvoyFilter.
+#
+# spec.infrastructure.parametersRef instructs the Istio gateway controller
+# to apply ConfigMap 'external-mtls-apikey-gateway-options'
+# (03-gateway-infra-configmap.yaml) as a Strategic Merge Patch on the
+# Deployment it manages. This mounts the CA cert Secret at
+# /etc/istio/mtls-client-ca-certs/ca.crt — the path read by the EnvoyFilter.
+#
+# The server TLS cert (api-external-mtls-apikey-tls) is issued by cert-manager
+# via TLSPolicy (05-tlspolicy.yaml).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: external-mtls-apikey
+  namespace: mtls-apikey
+  labels:
+    kuadrant.io/gateway: "true"
+spec:
+  gatewayClassName: openshift-default
+  infrastructure:
+    parametersRef:
+      group: ""
+      kind: ConfigMap
+      name: external-mtls-apikey-gateway-options
+  listeners:
+  - name: api
+    hostname: "mtls.mapi.example.com"
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: api-external-mtls-apikey-tls
+        kind: Secret
+        group: ""

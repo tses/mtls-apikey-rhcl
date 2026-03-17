@@ -1,0 +1,32 @@
+---
+# Istio Gateway API infrastructure ConfigMap.
+# The gateway controller applies this as a Strategic Merge Patch on top of
+# the Deployment it generates for the 'external-mtls-apikey' Gateway.
+#
+# Adds a volume + volumeMount so the Envoy proxy container can read the
+# client CA cert at /etc/istio/mtls-client-ca-certs/ca.crt
+# (the path referenced by the EnvoyFilter in 07-envoyfilter-mtls.yaml).
+#
+# Reference:
+#   https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/
+#   (section "Customizing Gateway infrastructure")
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: external-mtls-apikey-gateway-options
+  namespace: mtls-apikey
+data:
+  deployment: |
+    spec:
+      template:
+        spec:
+          volumes:
+          - name: mtls-client-ca-certs
+            secret:
+              secretName: mtls-client-ca-secret
+          containers:
+          - name: istio-proxy
+            volumeMounts:
+            - name: mtls-client-ca-certs
+              mountPath: /etc/istio/mtls-client-ca-certs
+              readOnly: true

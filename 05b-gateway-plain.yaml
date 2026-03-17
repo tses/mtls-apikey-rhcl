@@ -1,0 +1,43 @@
+---
+# Plain TLS Gateway — API key only, no client certificate required.
+#
+# This is the second Gateway in the dual-gateway design. Unlike 'external-mtls-apikey'
+# (04-gateway.yaml), this Gateway has NO infrastructure.parametersRef and NO EnvoyFilter
+# targeting it — client certificates are not requested or validated.
+#
+# Listener hostname is pinned to 'cert.mapi.example.com', which is intentionally
+# different from 'mtls.mapi.example.com' (external-mtls-apikey). This ensures
+# that Istio / Gateway API uses the hostname to determine which Gateway handles
+# each request, without any ambiguity between the two load-balancer IPs.
+#
+# Clients connecting to cert.mapi.example.com authenticate with API key only.
+# Their API key Secret MUST carry:
+#   kuadrant.io/mtls-required: "false"
+# so that the shared OPA rule in AuthPolicy skips the CN binding check.
+#
+# Both Gateways share the same namespace and backend services. HTTPRoutes reference
+# both Gateways via parentRefs, so a single HTTPRoute + AuthPolicy covers both
+# access tiers (mTLS+key and key-only).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: external-plain
+  namespace: mtls-apikey
+  labels:
+    kuadrant.io/gateway: "true"
+spec:
+  gatewayClassName: openshift-default
+  listeners:
+  - name: api
+    hostname: "cert.mapi.example.com"
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: api-external-plain-tls
+        kind: Secret
+        group: ""

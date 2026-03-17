@@ -1,0 +1,68 @@
+---
+# HTTPRoutes — dual-gateway design.
+#
+# Each HTTPRoute references BOTH Gateways via parentRefs:
+#   - external-mtls-apikey → mtls.mapi.example.com  (mTLS + API key)
+#   - external-plain       → cert.mapi.example.com  (API key only)
+#
+# The two hostnames map 1-to-1 to the listener hostnames of each Gateway:
+#   external-mtls-apikey  listener: mtls.mapi.example.com
+#   external-plain        listener: cert.mapi.example.com
+#
+# This ensures Istio / Gateway API resolves the correct Gateway purely by
+# hostname — no shared wildcard, no ambiguity between the two LoadBalancer IPs.
+#
+# A single AuthPolicy per route covers both access tiers. The OPA rule
+# in the AuthPolicy checks the kuadrant.io/mtls-required annotation on the
+# matched API key Secret to decide whether to enforce CN binding:
+#   mtls-required=true  → XFCC header must be present and CN must match expected-cn
+#   mtls-required=false → CN check is skipped (plain client)
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cars-route
+  namespace: mtls-apikey
+spec:
+  parentRefs:
+  - name: external-mtls-apikey
+    namespace: mtls-apikey
+    sectionName: api
+  - name: external-plain
+    namespace: mtls-apikey
+    sectionName: api
+  hostnames:
+  - "mtls.mapi.example.com"
+  - "cert.mapi.example.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /cars
+    backendRefs:
+    - name: cars
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tax-route
+  namespace: mtls-apikey
+spec:
+  parentRefs:
+  - name: external-mtls-apikey
+    namespace: mtls-apikey
+    sectionName: api
+  - name: external-plain
+    namespace: mtls-apikey
+    sectionName: api
+  hostnames:
+  - "mtls.mapi.example.com"
+  - "cert.mapi.example.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /tax
+    backendRefs:
+    - name: tax
+      port: 80

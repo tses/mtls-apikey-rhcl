@@ -1,0 +1,31 @@
+# RateLimitPolicy for Cars route — plan-based rate limiting (mTLS + API Key scenario)
+# Counter keyed by auth.identity.userid (projected from secret.kuadrant.io/user-id annotation)
+# Plan tiers: premium (100 req/10s), basic (5 req/10s)
+---
+apiVersion: kuadrant.io/v1
+kind: RateLimitPolicy
+metadata:
+  name: cars-mtls-apikey-ratelimit
+  namespace: mtls-apikey
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: cars-route
+  limits:
+    "premium-user-limit":
+      rates:
+        - limit: 100
+          window: 10s
+      counters:
+        - expression: "auth.identity.userid"
+      when:
+        - predicate: "auth.identity.level == 'premium'"
+    "basic-user-limit":
+      rates:
+        - limit: 5
+          window: 10s
+      counters:
+        - expression: "auth.identity.userid"
+      when:
+        - predicate: "auth.identity.level == 'basic'"
