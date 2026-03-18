@@ -15,6 +15,7 @@
 #   RAMP_DOWN_DURATION=15s ramp-down            (default: 15s)
 #   SLEEP_MIN=0.1        min sleep/req (s)      (default: 0.1)
 #   SLEEP_MAX=0.5        max sleep/req (s)      (default: 0.5)
+#   RAW_JSON=true        write combined-raw.json (default: off — file can be multi-GB)
 
 set -euo pipefail
 
@@ -125,6 +126,24 @@ ok "Starting k6..."
 # Dashboard: live at http://localhost:5665 while test runs.
 # k6 exits automatically when the test ends IF no browser window is open.
 # If it hangs, close the browser tab — the process will exit immediately.
+#
+# Errors: k6 writes console.error() to stderr.
+#   stderr is piped through `tee` so errors appear on the terminal in real-time
+#   AND are persisted to ${RESULTS_DIR}/errors.log.
+#   --out json is omitted by default (multi-GB). Set RAW_JSON=true to enable it.
+ERRORS_LOG="${RESULTS_DIR}/errors.log"
+RAW_JSON="${RAW_JSON:-false}"
+
+# Build optional --out json flag
+RAW_JSON_ARGS=()
+if [[ "${RAW_JSON}" == "true" ]]; then
+  RAW_JSON_ARGS=(--out "json=${RESULTS_DIR}/combined-raw.json")
+  warn "RAW_JSON=true — combined-raw.json will be written (can be multi-GB!)"
+fi
+
+info "Errors log    : ${ERRORS_LOG}"
+[[ "${RAW_JSON}" == "true" ]] && info "Raw JSON      : ${RESULTS_DIR}/combined-raw.json"
+
 K6_WEB_DASHBOARD=true \
 K6_WEB_DASHBOARD_PORT=5665 \
 K6_WEB_DASHBOARD_EXPORT="${RESULTS_DIR}/combined-report.html" \
@@ -142,5 +161,14 @@ K6_WEB_DASHBOARD_EXPORT="${RESULTS_DIR}/combined-report.html" \
     -e SLEEP_MIN="${SLEEP_MIN}" \
     -e SLEEP_MAX="${SLEEP_MAX}" \
     -e RESULTS_DIR="${RESULTS_DIR}" \
-    --out "json=${RESULTS_DIR}/combined-raw.json" \
-    "$STRESS_DIR/k6-stress-combined.js"
+    "${RAW_JSON_ARGS[@]}" \
+    "$STRESS_DIR/k6-stress-combined.js" \
+    2> >(tee "${ERRORS_LOG}" >&2)
+
+echo ""
+ERROR_COUNT=$(grep -c '^\(ERRO\|time=\)' "${ERRORS_LOG}" 2>/dev/null || true)
+if (( ERROR_COUNT > 0 )); then
+  warn "Errors recorded: ${ERROR_COUNT} — see ${ERRORS_LOG}"
+else
+  ok "No errors recorded in ${ERRORS_LOG}"
+fi
