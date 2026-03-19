@@ -105,3 +105,4 @@ bin/
 
 # Generated client certificates (sensitive)
 *.skip
+logs/
