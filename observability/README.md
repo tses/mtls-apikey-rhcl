@@ -102,3 +102,26 @@ After applying, delete the operator pod to force reconcile:
 ```bash
 oc delete pod -n openshift-operators -l app.kubernetes.io/name=grafana-operator
 ```
+
+### Required HTTPRoute labels for dashboard metrics ✅
+
+Some dashboard panels join `gatewayapi_httproute_labels` (from KSM) with `istio_requests_total` via:
+
+```promql
+label_replace(gatewayapi_httproute_labels{name=~"$api"}, "destination_service_name", "$1", "service", "(.+)")
+```
+
+For this join to work every HTTPRoute **must** carry `service` and `deployment` labels whose values match the backend Service/Deployment name:
+
+```yaml
+metadata:
+  labels:
+    service: <backend-service-name>       # e.g. cars  or  tax
+    deployment: <backend-deployment-name> # e.g. cars  or  tax
+```
+
+This applies to:
+- [`08-httproute.yaml`](../08-httproute.yaml) — `cars-route` (`service: cars`) and `tax-route` (`service: tax`) ✅
+- [`stress/gen-services.sh`](../stress/gen-services.sh) — routes 001–150 → `service: cars`; 151–300 → `service: tax` ✅
+
+Reference: [Red Hat Connectivity Link — Configure Observability Dashboards](https://docs.redhat.com/en/documentation/red_hat_connectivity_link/1.2/html/connectivity_link_observability_guide/configure-observability-dashboards_connectivity-link)

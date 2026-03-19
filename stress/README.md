@@ -97,6 +97,22 @@ oc patch authorino authorino -n kuadrant-system --type merge -p '
 oc rollout status deployment/authorino -n kuadrant-system
 ```
 
+#### Set Authorino resource limits
+
+With 300 services × 3000 API keys Authorino needs more headroom than the operator default.
+We pin both requests and limits to avoid throttling under OPA + Limitador burst:
+
+```bash
+oc set resources deployment/authorino -n kuadrant-system \
+  --limits=cpu=2,memory=12Gi \
+  --requests=cpu=2,memory=12Gi
+oc rollout status deployment/authorino -n kuadrant-system
+```
+
+> ⚠️ `oc set resources` patches the Deployment directly. If OLM or the Authorino operator
+> reconciles the Deployment this change may be reverted. Re-run the command if pods are
+> restarted unexpectedly and latency spikes are observed.
+
 #### d) Increase `kuadrant-operator-controller-manager` memory limits
 
 ```bash
