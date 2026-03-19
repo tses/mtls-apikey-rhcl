@@ -221,6 +221,8 @@ else
 
     AP_ENFORCED=$(_count_enforced authpolicy      "$NS")
     RL_ENFORCED=$(_count_enforced ratelimitpolicy "$NS")
+    # DEBUG: print raw captured values to confirm double-value bug
+    echo "[DEBUG] AP_ENFORCED raw='${AP_ENFORCED}' RL_ENFORCED raw='${RL_ENFORCED}'" >&2
     _ELAPSED=$(( SECONDS - _STEP5_START ))
     _ELAPSED_MIN=$(( _ELAPSED / 60 ))
     _ELAPSED_SEC=$(( _ELAPSED % 60 ))
