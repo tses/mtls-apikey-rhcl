@@ -180,10 +180,13 @@ EXPECTED_POLICIES=300                                      # one per service
 # Portable across all oc/kubectl versions (no jsonpath filter syntax needed).
 _count_enforced() {
   local KIND="$1" NS_TARGET="$2"
-  oc get "$KIND" -n "$NS_TARGET" -l stress-test=true \
+  local _out
+  _out=$(oc get "$KIND" -n "$NS_TARGET" -l stress-test=true \
     -o jsonpath='{range .items[*]}{.metadata.name}{" "}{range .status.conditions[*]}{.type}{"="}{.status}{" "}{end}{"\n"}{end}' \
-    2>/dev/null \
-    | grep -c "Enforced=True" || echo "0"
+    2>/dev/null) || true
+  # grep -c exits 1 on zero matches; avoid the || echo "0" double-print pattern
+  # by counting in-process instead.
+  echo "$_out" | grep -c "Enforced=True" 2>/dev/null || echo "0"
 }
 
 if [[ "$SKIP_APPLY" == "1" ]]; then
@@ -221,8 +224,6 @@ else
 
     AP_ENFORCED=$(_count_enforced authpolicy      "$NS")
     RL_ENFORCED=$(_count_enforced ratelimitpolicy "$NS")
-    # DEBUG: print raw captured values to confirm double-value bug
-    echo "[DEBUG] AP_ENFORCED raw='${AP_ENFORCED}' RL_ENFORCED raw='${RL_ENFORCED}'" >&2
     _ELAPSED=$(( SECONDS - _STEP5_START ))
     _ELAPSED_MIN=$(( _ELAPSED / 60 ))
     _ELAPSED_SEC=$(( _ELAPSED % 60 ))
