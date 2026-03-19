@@ -72,6 +72,8 @@ metadata:
   labels:
     stress-test: "true"
     stress-group: "${GROUP}"
+    service: "${BACKEND_SVC}"
+    deployment: "${BACKEND_SVC}"
 spec:
   parentRefs:
   - name: external-mtls-apikey

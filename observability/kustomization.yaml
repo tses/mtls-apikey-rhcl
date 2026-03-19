@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Uses the OpenShift-specific overlay from v1.3.0 which already patches
+# the istiod ServiceMonitor to openshift-ingress. We only need to
+# additionally fix the Telemetry CR namespace to mtls-apikey (where
+# our Gateways live), instead of the upstream default openshift-ingress.
+resources:
+  - https://github.com/Kuadrant/kuadrant-operator/config/install/configure/observability/openshift?ref=v1.3.0
+
+patches:
+  # Override the Telemetry namespace: upstream v1.3.0 sets openshift-ingress,
+  # but Telemetry must be in the same ns as the Gateway (mtls-apikey) to apply.
+  - patch: |-
+      - op: replace
+        path: /metadata/namespace
+        value: mtls-apikey
+    target:
+      group: telemetry.istio.io
+      kind: Telemetry
+      name: namespace-metrics

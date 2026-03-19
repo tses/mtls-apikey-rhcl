@@ -201,84 +201,6 @@ K6_WEB_DASHBOARD_EXPORT=mtls-apikey/stress/results/combined-report.html \
 | `STEADY_DURATION` | `120s` | Steady-state duration |
 | `RAMP_DOWN_DURATION` | `15s` | Ramp-down duration |
 | `RESULTS_DIR` | `results` | Output directory for `combined-summary.json` |
-
-### Running inside OpenShift (Job)
-
-```bash
-# 1. Upload scripts as ConfigMap
-oc create configmap k6-scripts \
-  --from-file=k6-stress-combined.js=mtls-apikey/stress/k6-stress-combined.js \
-  -n mtls-apikey
-
-# 2. Upload client cert as Secret
-oc create secret generic k6-client-certs \
-  --from-file=stress-user-001.crt=tmp/mtls-demo/stress-user-001.crt \
-  --from-file=stress-user-001.key=tmp/mtls-demo/stress-user-001.key \
-  -n mtls-apikey
-
-# 3. Run as a Job (edit GW_MTLS / GW_PLAIN / VU values below)
-oc apply -f - <<EOF
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: k6-stress-combined
-  namespace: mtls-apikey
-spec:
-  backoffLimit: 0
-  template:
-    spec:
-      restartPolicy: Never
-      containers:
-        - name: k6
-          image: grafana/k6:latest
-          args:
-            - run
-            - --insecure-skip-tls-verify
-            - /scripts/k6-stress-combined.js
-          env:
-            - name: GW_MTLS
-              value: "<MTLS_GW_IP>"
-            - name: GW_PLAIN
-              value: "<PLAIN_GW_IP>"
-            - name: CERT_DIR
-              value: /certs
-            - name: MTLS_VUS
-              value: "1"
-            - name: PLAIN_VUS
-              value: "1"
-            - name: STEADY_DURATION
-              value: "60s"
-            - name: RESULTS_DIR
-              value: /tmp/results
-          volumeMounts:
-            - name: scripts
-              mountPath: /scripts
-            - name: certs
-              mountPath: /certs
-              readOnly: true
-      volumes:
-        - name: scripts
-          configMap:
-            name: k6-scripts
-        - name: certs
-          secret:
-            secretName: k6-client-certs
-EOF
-
-# 4. Follow logs
-oc logs -f job/k6-stress-combined -n mtls-apikey
-
-# 5. Copy summary JSON after completion
-POD=$(oc get pods -n mtls-apikey -l job-name=k6-stress-combined \
-  -o jsonpath='{.items[0].metadata.name}')
-oc wait job/k6-stress-combined -n mtls-apikey \
-  --for=condition=complete --timeout=600s
-oc cp "mtls-apikey/${POD}:/tmp/results/combined-summary.json" \
-  mtls-apikey/stress/results/combined-summary.json
-```
-
----
-
 ## Gradual ramp-up strategy (recommended)
 
 Run `setup-stress.sh` once, then escalate:
@@ -397,11 +319,7 @@ Report → `mtls-apikey/stress/results/combined-report.html`
 
 ---
 
-## Scenario selection flags
 
-| Flag | Effect |
-|---|---|
-| `SKIP_APPLY=1` | Skip `oc apply` in `setup-stress.sh` (resources already on cluster) |
 
 ### Debugging examples
 
