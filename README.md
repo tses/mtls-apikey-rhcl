@@ -130,5 +130,9 @@ curl -sk --resolve "cert.mapi.example.com:443:$GW_PLAIN" \
 ## Hardening notes (beyond PoC)
 
 - Use cert **fingerprint** binding instead of CN for stronger identity
-- CA rotation: update `mtls-client-ca-secret` + restart gateway pod
+- CA rotation: update `mtls-client-ca-secret` + restart gateway pod:
+  ```bash
+  oc rollout restart deployment -n mtls-apikey \
+    -l gateway.networking.k8s.io/gateway-name=external-mtls-apikey
+  ```
 - XFCC header is **lower-cased** by Envoy → use `x-forwarded-client-cert` in OPA
