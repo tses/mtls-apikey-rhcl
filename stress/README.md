@@ -181,7 +181,7 @@ chmod +x mtls-apikey/stress/*.sh
 # 2. Connectivity check (1 VU each tier, 60 s — verify auth + routing before scaling up)
 MTLS_VUS=1 PLAIN_VUS=1 STEADY_DURATION=60s ./mtls-apikey/stress/run-stress-test.sh
 
-# 3. Full load test (repeatable, use SKIP_APPLY=1 to skip apply on subsequent runs)
+# 3. Full load test
 MTLS_VUS=1500 PLAIN_VUS=1500 RAMP_DURATION=60s STEADY_DURATION=300s \
   ./mtls-apikey/stress/run-stress-test.sh
 ```
@@ -437,11 +437,19 @@ watch -n10 'oc adm top pods -n mtls-apikey \
 # Remove all generated resources (keeps CA cert and base PoC resources)
 ./mtls-apikey/stress/cleanup-stress.sh
 
-# Also revert data-plane scaling (Authorino → 1 replica)
-REVERT_SCALING=1 ./mtls-apikey/stress/cleanup-stress.sh
-
 # Dry-run (see what would be deleted)
 DRY_RUN=1 ./mtls-apikey/stress/cleanup-stress.sh
+```
+
+To revert data-plane scaling manually after cleanup:
+
+```bash
+# Authorino — back to 1 replica
+oc patch authorino authorino -n kuadrant-system --type merge -p '{"spec":{"replicas":1}}'
+
+# Limitador — back to 1 replica + in-memory storage (remove Valkey backend)
+oc patch limitador limitador -n kuadrant-system --type merge \
+  -p '{"spec":{"replicas":1,"storage":{"redis":null}}}'
 ```
 
 ---

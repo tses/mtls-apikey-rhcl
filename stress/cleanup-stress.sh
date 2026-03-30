@@ -3,13 +3,12 @@
 #
 # Removes all resources created by the stress test scripts:
 #   - API key Secrets in kuadrant-system  (label: stress-test=true)
-#   - 300 × (Deployment + Service + HTTPRoute + AuthPolicy + RateLimitPolicy) in mtls-apikey
+#   - 300 × (HTTPRoute + AuthPolicy + RateLimitPolicy) in mtls-apikey
 #
 # Does NOT touch:
 #   - The original PoC resources (00-*.yaml … 13-*.yaml)
 #   - The original 3 client certs (insurance-user, accountant-user, accountant-director)
 #   - CA cert / CA key in tmp/mtls-demo/
-#   - The rhcl-scaling-uc resources (Valkey, Limitador, Authorino scaling)
 #
 # Usage:
 #   chmod +x cleanup-stress.sh
@@ -19,10 +18,6 @@
 #
 #   # Full cleanup
 #   ./mtls-apikey/stress/cleanup-stress.sh
-#
-#   # Also revert data-plane scaling (Limitador / Authorino back to 1 replica,
-#   # Valkey removed, Gateway HPA removed)
-#   REVERT_SCALING=1 ./mtls-apikey/stress/cleanup-stress.sh
 
 set -euo pipefail
 
@@ -30,7 +25,6 @@ NS_KEYS="kuadrant-system"
 NS_APP="mtls-apikey"
 
 DRY_RUN="${DRY_RUN:-0}"
-REVERT_SCALING="${REVERT_SCALING:-0}"
 
 # ── Colour helpers ────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -137,40 +131,7 @@ if (( STRESS_CERT_COUNT > 0 )); then
   fi
 fi
 
-# ── 4. Optionally revert data-plane scaling ───────────────────────────────────
-if [[ "$REVERT_SCALING" == "1" ]]; then
-  warn "REVERT_SCALING=1 — reverting Limitador, Authorino, and Gateway HPA"
-
-  info "Reverting Limitador to 1 replica + in-memory storage"
-  $OC_DELETE secret limitador-valkey-url -n kuadrant-system --ignore-not-found || true
-  if [[ "$DRY_RUN" != "1" ]]; then
-    oc patch limitador limitador -n kuadrant-system --type merge \
-      -p '{"spec":{"replicas":1,"storage":{"redis":null}}}' || true
-  fi
-  ok "Limitador reverted"
-
-  info "Reverting Authorino to 1 replica"
-  if [[ "$DRY_RUN" != "1" ]]; then
-    oc patch authorino authorino -n kuadrant-system --type merge \
-      -p '{"spec":{"replicas":1}}' || true
-  fi
-  ok "Authorino reverted"
-
-  info "Removing Valkey (rhcl-dbs namespace)"
-  REPO_ROOT_LOCAL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-  $OC_DELETE -f "$REPO_ROOT_LOCAL/rhcl-scaling-uc/01-valkey_deploy.yaml" \
-    --ignore-not-found || true
-  ok "Valkey removed"
-
-  info "Reverting Gateway HPA (back to base 04-gateway.yaml)"
-  $OC_DELETE configmap external-gateway-options -n api-gateway --ignore-not-found || true
-  if [[ "$DRY_RUN" != "1" ]]; then
-    oc apply -f "$REPO_ROOT_LOCAL/04-gateway.yaml" || true
-  fi
-  ok "Gateway reverted to base config"
-fi
-
-# ── 5. Verify cleanup ────────────────────────────────────────────────────────
+# ── 4. Verify cleanup ────────────────────────────────────────────────────────
 echo ""
 info "Verification — remaining stress resources:"
 echo ""
